@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Zhuyin">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#1c2a24">
+  <meta name="description" content="Zhuyin (Bopomofo) pronunciation flashcards with spoken audio.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <title>Zhuyin Flashcards</title>
+  <style>
+    :root {
+      --bg0: #15201c;
+      --bg1: #1c2a24;
+      --ink: #f2efe6;
+      --muted: #a8b5ad;
+      --accent: #d4a04a;
+      --accent-dim: #9a7433;
+      --card: #24332c;
+      --card-edge: #3a4f44;
+      --ok: #6fbe8b;
+      --danger: #d98b7a;
+      --radius: 18px;
+      --tap: 48px;
+      --font-ui: "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif;
+      --font-zh: "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", "Heiti TC", sans-serif;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(120% 80% at 10% -10%, #2a4036 0%, transparent 55%),
+        radial-gradient(90% 60% at 100% 0%, #3a3220 0%, transparent 45%),
+        linear-gradient(165deg, var(--bg0), var(--bg1));
+      color: var(--ink);
+      font-family: var(--font-ui);
+    }
+
+    body {
+      padding: max(12px, env(safe-area-inset-top)) 14px max(16px, env(safe-area-inset-bottom));
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    header {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+    }
+
+    .sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.35;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    select, button {
+      font: inherit;
+      border-radius: 12px;
+      border: 1px solid var(--card-edge);
+      background: var(--card);
+      color: var(--ink);
+      min-height: var(--tap);
+      padding: 0 14px;
+    }
+
+    select {
+      flex: 1;
+      min-width: 0;
+    }
+
+    button {
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    button:active { transform: scale(0.98); }
+
+    button.primary {
+      background: linear-gradient(180deg, #e0b45c, var(--accent));
+      color: #1a1408;
+      border-color: var(--accent-dim);
+      font-weight: 650;
+    }
+
+    button.ghost {
+      background: transparent;
+    }
+
+    button.icon {
+      width: var(--tap);
+      min-width: var(--tap);
+      padding: 0;
+      font-size: 1.25rem;
+    }
+
+    .toggles {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .toggles label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      user-select: none;
+    }
+
+    .progress {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .stage {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 0;
+    }
+
+    .card {
+      position: relative;
+      height: min(58vh, 420px);
+      perspective: 1200px;
+      touch-action: pan-y;
+    }
+
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.45s cubic-bezier(.2,.8,.2,1);
+      transform-style: preserve-3d;
+    }
+
+    .card.flipped .card-inner { transform: rotateY(180deg); }
+
+    .face {
+      position: absolute;
+      inset: 0;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      border-radius: var(--radius);
+      border: 1px solid var(--card-edge);
+      background:
+        linear-gradient(160deg, rgba(255,255,255,0.04), transparent 40%),
+        var(--card);
+      box-shadow: 0 18px 40px rgba(0,0,0,0.28);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 22px 18px;
+      text-align: center;
+      gap: 10px;
+    }
+
+    .back { transform: rotateY(180deg); }
+
+    .hint-tap {
+      position: absolute;
+      top: 12px;
+      right: 14px;
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .deck-tag {
+      font-size: 0.75rem;
+      color: var(--accent);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .zhuyin {
+      font-family: var(--font-zh);
+      font-size: clamp(3.6rem, 18vw, 5.6rem);
+      line-height: 1.1;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+    }
+
+    .zhuyin.small { font-size: clamp(2.4rem, 12vw, 3.4rem); }
+
+    .pinyin {
+      font-size: 1.55rem;
+      font-weight: 650;
+      color: var(--accent);
+    }
+
+    .pinyin-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .pinyin-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .example-pinyin {
+      font-size: 1.15rem;
+      font-weight: 650;
+      color: var(--accent);
+    }
+
+    .tip {
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.4;
+      max-width: 26ch;
+    }
+
+    .example {
+      margin-top: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .example-char {
+      font-family: var(--font-zh);
+      font-size: 2.4rem;
+      line-height: 1;
+    }
+
+    .example-meta {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr 1fr;
+      gap: 8px;
+    }
+
+    .controls .speak {
+      grid-column: 1 / -1;
+    }
+
+    .practice-audio {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 12px;
+      border: 1px solid var(--card-edge);
+      border-radius: var(--radius);
+      background: rgba(0, 0, 0, 0.18);
+    }
+
+    .practice-audio .full {
+      grid-column: 1 / -1;
+    }
+
+    .practice-audio button.recording {
+      background: linear-gradient(180deg, #e09a8a, var(--danger));
+      color: #1a0c08;
+      border-color: #a85a4a;
+      font-weight: 650;
+    }
+
+    .rec-status {
+      grid-column: 1 / -1;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--muted);
+      min-height: 1.2em;
+    }
+
+    .rec-status.active {
+      color: var(--danger);
+      font-weight: 650;
+    }
+
+    .rec-status.ready {
+      color: var(--ok);
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 0.75rem;
+      text-align: center;
+      line-height: 1.35;
+    }
+
+    .footer-note code {
+      color: var(--ink);
+      font-size: 0.7rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Zhuyin Flashcards</h1>
+    <p class="sub">Tap the card to flip. Speak the example, record yourself, then compare.</p>
+    <div class="row">
+      <label class="visually-hidden" for="deck" style="position:absolute;left:-9999px">Deck</label>
+      <select id="deck" aria-label="Choose deck"></select>
+      <button type="button" class="icon ghost" id="shuffle" title="Shuffle" aria-label="Shuffle">⇄</button>
+    </div>
+    <div class="toggles">
+      <label><input type="checkbox" id="autoSpeak"> Auto-speak on flip</label>
+      <label><input type="checkbox" id="showPinyinFront"> Show pinyin on front</label>
+    </div>
+  </header>
+
+  <div class="progress">
+    <span id="counter">1 / 1</span>
+    <span id="deckLabel">Initials</span>
+  </div>
+
+  <div class="stage">
+    <div class="card" id="card" role="button" tabindex="0" aria-label="Flashcard — tap to flip">
+      <div class="card-inner">
+        <div class="face front">
+          <span class="hint-tap">tap</span>
+          <div class="deck-tag" id="frontTag">Initial</div>
+          <div class="zhuyin" id="frontZhuyin">ㄅ</div>
+          <div class="pinyin" id="frontPinyin" hidden></div>
+        </div>
+        <div class="face back">
+          <span class="hint-tap">tap</span>
+          <div class="deck-tag" id="backTag">Initial</div>
+          <div class="zhuyin" id="backZhuyin">ㄅ</div>
+          <div class="pinyin-block">
+            <div class="pinyin-label">Pinyin</div>
+            <div class="pinyin" id="backPinyin">b</div>
+          </div>
+          <div class="tip" id="backTip"></div>
+          <div class="example">
+            <div class="example-char" id="exampleChar"></div>
+            <div class="example-pinyin" id="examplePinyin"></div>
+            <div class="example-meta" id="exampleMeta"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button type="button" class="ghost" id="prev">← Prev</button>
+    <button type="button" class="primary" id="flip">Flip</button>
+    <button type="button" class="ghost" id="next">Next →</button>
+    <button type="button" class="primary speak" id="speak">🔊 Example pronunciation</button>
+  </div>
+
+  <div class="practice-audio" aria-label="Record and compare your pronunciation">
+    <button type="button" id="recordBtn">🎤 Record</button>
+    <button type="button" class="ghost" id="playMineBtn" disabled>▶ My take</button>
+    <button type="button" class="primary full" id="compareBtn" disabled>🔁 Compare (example → me)</button>
+    <button type="button" class="ghost full" id="clearRecBtn" disabled>Clear recording</button>
+    <div class="rec-status" id="recStatus">Held in memory only. Re-record or next card discards it.</div>
+  </div>
+
+  <p class="footer-note" id="installHint">
+    iPhone: open in <strong>Safari</strong> → Share → <strong>Add to Home Screen</strong>.
+    Allow microphone when asked. Tap <strong>Speak</strong> / <strong>Record</strong> for audio (iOS blocks auto-play).
+  </p>
+
+  <script>
+    /**
+     * Each card:
+     *  zhuyin, pinyin, tip, tag,
+     *  example (hanzi to display), meaning,
+     *  speak (text for zh-TW TTS — usually a clear example syllable/word)
+     */
+    const CARDS = {
+      initials: [
+        { zhuyin: "ㄅ", pinyin: "b", tip: "Like English “b”, less aspirated.", example: "巴", meaning: "ba — as in 爸爸", speak: "巴" },
+        { zhuyin: "ㄆ", pinyin: "p", tip: "Aspirated “p” — puff of air.", example: "趴", meaning: "pa", speak: "趴" },
+        { zhuyin: "ㄇ", pinyin: "m", tip: "Like English “m”.", example: "媽", meaning: "ma — mom", speak: "媽" },
+        { zhuyin: "ㄈ", pinyin: "f", tip: "Like English “f”.", example: "發", meaning: "fa", speak: "發" },
+        { zhuyin: "ㄉ", pinyin: "d", tip: "Like English “d”, unaspirated.", example: "大", meaning: "da — big", speak: "大" },
+        { zhuyin: "ㄊ", pinyin: "t", tip: "Aspirated “t”.", example: "他", meaning: "ta — he", speak: "他" },
+        { zhuyin: "ㄋ", pinyin: "n", tip: "Like English “n”.", example: "那", meaning: "na", speak: "那" },
+        { zhuyin: "ㄌ", pinyin: "l", tip: "Like English “l”.", example: "拉", meaning: "la", speak: "拉" },
+        { zhuyin: "ㄍ", pinyin: "g", tip: "Hard “g” (as in go), unaspirated.", example: "哥", meaning: "ge — older brother", speak: "哥" },
+        { zhuyin: "ㄎ", pinyin: "k", tip: "Aspirated “k”.", example: "卡", meaning: "ka — card", speak: "卡" },
+        { zhuyin: "ㄏ", pinyin: "h", tip: "Breathy “h” (a bit farther back).", example: "哈", meaning: "ha", speak: "哈" },
+        { zhuyin: "ㄐ", pinyin: "j", tip: "Soft “j” — tongue toward palate (ji).", example: "雞", meaning: "ji — chicken", speak: "雞" },
+        { zhuyin: "ㄑ", pinyin: "q", tip: "Aspirated palate sound (qi) — not English “q”.", example: "七", meaning: "qi — seven", speak: "七" },
+        { zhuyin: "ㄒ", pinyin: "x", tip: "Like “sh” but farther forward (xi).", example: "西", meaning: "xi — west", speak: "西" },
+        { zhuyin: "ㄓ", pinyin: "zh", tip: "Retroflex “j/zh” — tongue curled back. Alone: zhi.", example: "知", meaning: "zhi — know", speak: "知" },
+        { zhuyin: "ㄔ", pinyin: "ch", tip: "Aspirated retroflex. Alone: chi.", example: "吃", meaning: "chi — eat", speak: "吃" },
+        { zhuyin: "ㄕ", pinyin: "sh", tip: "Retroflex “sh”. Alone: shi.", example: "是", meaning: "shi — is/yes", speak: "是" },
+        { zhuyin: "ㄖ", pinyin: "r", tip: "Retroflex “r” (like French j, curled). Alone: ri.", example: "日", meaning: "ri — day/sun", speak: "日" },
+        { zhuyin: "ㄗ", pinyin: "z", tip: "Like “dz”, tip of tongue. Alone: zi.", example: "字", meaning: "zi — character", speak: "字" },
+        { zhuyin: "ㄘ", pinyin: "c", tip: "Aspirated “ts”. Alone: ci.", example: "詞", meaning: "ci — word", speak: "詞" },
+        { zhuyin: "ㄙ", pinyin: "s", tip: "Like English “s”. Alone: si.", example: "四", meaning: "si — four", speak: "四" },
+      ],
+      finals: [
+        { zhuyin: "ㄚ", pinyin: "a", tip: "Open “ah” as in father.", example: "阿", meaning: "a", speak: "阿" },
+        { zhuyin: "ㄛ", pinyin: "o", tip: "Rounded “aw/oh” (po, bo, mo, fo).", example: "喔", meaning: "o", speak: "喔" },
+        { zhuyin: "ㄜ", pinyin: "e", tip: "Unrounded “uh” (not English ee).", example: "惡", meaning: "e", speak: "惡" },
+        { zhuyin: "ㄝ", pinyin: "ê / ie", tip: "Like “eh” in yes (often with ㄧ).", example: "耶", meaning: "ye", speak: "耶" },
+        { zhuyin: "ㄦ", pinyin: "er", tip: "R-colored “er” (兒).", example: "兒", meaning: "er — child / suffix", speak: "兒" },
+        { zhuyin: "ㄧ", pinyin: "i / yi", tip: "Like “ee”. Alone written yi.", example: "一", meaning: "yi — one", speak: "一" },
+        { zhuyin: "ㄨ", pinyin: "u / wu", tip: "Like “oo”. Alone written wu.", example: "五", meaning: "wu — five", speak: "五" },
+        { zhuyin: "ㄩ", pinyin: "ü / yu", tip: "French u / German ü. Alone written yu.", example: "雨", meaning: "yu — rain", speak: "雨" },
+        { zhuyin: "ㄞ", pinyin: "ai", tip: "Like “eye”.", example: "愛", meaning: "ai — love", speak: "愛" },
+        { zhuyin: "ㄟ", pinyin: "ei", tip: "Like “ay” in day.", example: "欸", meaning: "ei", speak: "欸" },
+        { zhuyin: "ㄠ", pinyin: "ao", tip: "Like “ow” in how.", example: "奧", meaning: "ao", speak: "奧" },
+        { zhuyin: "ㄡ", pinyin: "ou", tip: "Like “oh”.", example: "歐", meaning: "ou", speak: "歐" },
+        { zhuyin: "ㄢ", pinyin: "an", tip: "“ahn” — open a + n.", example: "安", meaning: "an — peace", speak: "安" },
+        { zhuyin: "ㄣ", pinyin: "en", tip: "Like “un” in under.", example: "恩", meaning: "en", speak: "恩" },
+        { zhuyin: "ㄤ", pinyin: "ang", tip: "“ahng” — open a + ng.", example: "昂", meaning: "ang", speak: "昂" },
+        { zhuyin: "ㄥ", pinyin: "eng", tip: "Like “ung” in sung.", example: "冷", meaning: "leng (has eng)", speak: "冷" },
+      ],
+      compounds: [
+        { zhuyin: "ㄧㄚ", pinyin: "ia / ya", tip: "ya — as in 牙.", example: "牙", meaning: "ya — tooth", speak: "牙" },
+        { zhuyin: "ㄧㄠ", pinyin: "iao / yao", tip: "yao — as in 要.", example: "要", meaning: "yao — want", speak: "要" },
+        { zhuyin: "ㄧㄢ", pinyin: "ian / yan", tip: "yan — as in 眼.", example: "眼", meaning: "yan — eye", speak: "眼" },
+        { zhuyin: "ㄧㄤ", pinyin: "iang / yang", tip: "yang — as in 陽.", example: "陽", meaning: "yang", speak: "陽" },
+        { zhuyin: "ㄧㄝ", pinyin: "ie / ye", tip: "ye — as in 夜.", example: "夜", meaning: "ye — night", speak: "夜" },
+        { zhuyin: "ㄧㄣ", pinyin: "in / yin", tip: "yin — as in 音.", example: "音", meaning: "yin — sound", speak: "音" },
+        { zhuyin: "ㄧㄥ", pinyin: "ing / ying", tip: "ying — as in 英.", example: "英", meaning: "ying", speak: "英" },
+        { zhuyin: "ㄨㄚ", pinyin: "ua / wa", tip: "wa — as in 挖.", example: "挖", meaning: "wa — dig", speak: "挖" },
+        { zhuyin: "ㄨㄛ", pinyin: "uo / wo", tip: "wo — as in 我.", example: "我", meaning: "wo — I", speak: "我" },
+        { zhuyin: "ㄨㄞ", pinyin: "uai / wai", tip: "wai — as in 外.", example: "外", meaning: "wai — outside", speak: "外" },
+        { zhuyin: "ㄨㄟ", pinyin: "uei / wei", tip: "wei — as in 為.", example: "為", meaning: "wei — for / to be", speak: "為" },
+        { zhuyin: "ㄨㄢ", pinyin: "uan / wan", tip: "wan — as in 完.", example: "完", meaning: "wan — finish", speak: "完" },
+        { zhuyin: "ㄨㄣ", pinyin: "uen / wen", tip: "wen — as in 文.", example: "文", meaning: "wen — language / culture", speak: "文" },
+        { zhuyin: "ㄨㄤ", pinyin: "uang / wang", tip: "wang — as in 王.", example: "王", meaning: "wang — king", speak: "王" },
+        { zhuyin: "ㄨㄥ", pinyin: "ong / weng", tip: "After initials usually ong; alone weng.", example: "翁", meaning: "weng", speak: "翁" },
+        { zhuyin: "ㄩㄝ", pinyin: "üe / yue", tip: "yue — as in 月.", example: "月", meaning: "yue — moon", speak: "月" },
+        { zhuyin: "ㄩㄢ", pinyin: "üan / yuan", tip: "yuan — as in 園.", example: "園", meaning: "yuan — garden", speak: "園" },
+        { zhuyin: "ㄩㄣ", pinyin: "ün / yun", tip: "yun — as in 雲.", example: "雲", meaning: "yun — cloud", speak: "雲" },
+        { zhuyin: "ㄩㄥ", pinyin: "iong / yong", tip: "yong — as in 用.", example: "用", meaning: "yong — use", speak: "用" },
+      ],
+      tones: [
+        { zhuyin: "—", pinyin: "1st tone (ˉ)", tip: "High and level. No Zhuyin mark.", example: "媽", meaning: "mā — mother", speak: "媽" },
+        { zhuyin: "ˊ", pinyin: "2nd tone", tip: "Rising, like asking “huh?”", example: "麻", meaning: "má — hemp / numb", speak: "麻" },
+        { zhuyin: "ˇ", pinyin: "3rd tone", tip: "Low dip (often just low).", example: "馬", meaning: "mǎ — horse", speak: "馬" },
+        { zhuyin: "ˋ", pinyin: "4th tone", tip: "Sharp falling — firm command.", example: "罵", meaning: "mà — scold", speak: "罵" },
+        { zhuyin: "˙", pinyin: "neutral (5)", tip: "Light & short — unstressed.", example: "嗎", meaning: "ma — question particle", speak: "嗎" },
+      ],
+      words: [
+        { zhuyin: "ㄋㄧˇ", pinyin: "nǐ", tip: "You (singular).", example: "你", meaning: "you", speak: "你" },
+        { zhuyin: "ㄏㄠˇ", pinyin: "hǎo", tip: "Good / well.", example: "好", meaning: "good", speak: "好" },
+        { zhuyin: "ㄋㄧˇ ㄏㄠˇ", pinyin: "nǐ hǎo", tip: "Hello.", example: "你好", meaning: "hello", speak: "你好" },
+        { zhuyin: "ㄨㄛˇ", pinyin: "wǒ", tip: "I / me.", example: "我", meaning: "I", speak: "我" },
+        { zhuyin: "ㄒㄩㄝˊ", pinyin: "xué", tip: "Learn / study.", example: "學", meaning: "learn", speak: "學" },
+        { zhuyin: "ㄒㄩㄝˊ ㄒㄧˊ", pinyin: "xué xí", tip: "To study / learn.", example: "學習", meaning: "to study", speak: "學習" },
+        { zhuyin: "ㄓㄨㄥ", pinyin: "zhōng", tip: "Middle / China (中).", example: "中", meaning: "middle", speak: "中" },
+        { zhuyin: "ㄒㄧㄝˋ ㄒㄧㄝ˙", pinyin: "xiè xie", tip: "Thank you.", example: "謝謝", meaning: "thanks", speak: "謝謝" },
+        { zhuyin: "ㄞˋ", pinyin: "ài", tip: "Love.", example: "愛", meaning: "love", speak: "愛" },
+        { zhuyin: "ㄗㄞˋ ㄐㄧㄢˋ", pinyin: "zài jiàn", tip: "Goodbye.", example: "再見", meaning: "goodbye", speak: "再見" },
+      ],
+    };
+
+    const DECK_META = {
+      initials: "Initials (聲母)",
+      finals: "Finals (韻母)",
+      compounds: "Compounds",
+      tones: "Tones (聲調)",
+      words: "Useful words",
+      all: "Everything",
+    };
+
+    const state = {
+      deckKey: "initials",
+      order: [],
+      index: 0,
+      flipped: false,
+    };
+
+    const els = {
+      deck: document.getElementById("deck"),
+      card: document.getElementById("card"),
+      counter: document.getElementById("counter"),
+      deckLabel: document.getElementById("deckLabel"),
+      frontTag: document.getElementById("frontTag"),
+      frontZhuyin: document.getElementById("frontZhuyin"),
+      frontPinyin: document.getElementById("frontPinyin"),
+      backTag: document.getElementById("backTag"),
+      backZhuyin: document.getElementById("backZhuyin"),
+      backPinyin: document.getElementById("backPinyin"),
+      backTip: document.getElementById("backTip"),
+      exampleChar: document.getElementById("exampleChar"),
+      examplePinyin: document.getElementById("examplePinyin"),
+      exampleMeta: document.getElementById("exampleMeta"),
+      autoSpeak: document.getElementById("autoSpeak"),
+      showPinyinFront: document.getElementById("showPinyinFront"),
+    };
+
+    function spokenPinyin(card) {
+      if (card.examplePinyin) return card.examplePinyin;
+      if (card.meaning) {
+        const left = card.meaning.split("—")[0].trim();
+        if (
+          left &&
+          left.length < 24 &&
+          /^[a-züÜāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜêńňǹ\s.'-]+$/i.test(left)
+        ) {
+          return left;
+        }
+      }
+      return card.pinyin || "";
+    }
+
+    function buildAll() {
+      return Object.keys(CARDS).flatMap((key) =>
+        CARDS[key].map((c) => ({ ...c, _deck: key }))
+      );
+    }
+
+    function currentDeck() {
+      if (state.deckKey === "all") return buildAll();
+      return CARDS[state.deckKey].map((c) => ({ ...c, _deck: state.deckKey }));
+    }
+
+    function shuffleInPlace(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function resetOrder(doShuffle) {
+      const deck = currentDeck();
+      state.order = deck.map((_, i) => i);
+      if (doShuffle) shuffleInPlace(state.order);
+      state.index = 0;
+      state.flipped = false;
+      render();
+    }
+
+    function currentCard() {
+      const deck = currentDeck();
+      return deck[state.order[state.index]];
+    }
+
+    function tagFor(card) {
+      const key = card._deck || state.deckKey;
+      return DECK_META[key] || key;
+    }
+
+    function render() {
+      const card = currentCard();
+      const total = state.order.length;
+      const n = state.index + 1;
+      els.counter.textContent = `${n} / ${total}`;
+      els.deckLabel.textContent = DECK_META[state.deckKey];
+      els.card.classList.toggle("flipped", state.flipped);
+
+      const zhClass = card.zhuyin.length > 3 ? "zhuyin small" : "zhuyin";
+      els.frontZhuyin.className = zhClass;
+      els.backZhuyin.className = zhClass;
+      els.frontZhuyin.textContent = card.zhuyin;
+      els.backZhuyin.textContent = card.zhuyin;
+      els.frontTag.textContent = tagFor(card);
+      els.backTag.textContent = tagFor(card);
+      els.backPinyin.textContent = card.pinyin;
+      els.backTip.textContent = card.tip || "";
+      els.exampleChar.textContent = card.example || "";
+      const spoken = spokenPinyin(card);
+      els.examplePinyin.textContent = spoken;
+      // Avoid repeating the same string under the character when meaning is only pinyin
+      const meaning = card.meaning || "";
+      const meaningLeft = meaning.split("—")[0].trim();
+      els.exampleMeta.textContent =
+        meaning && meaningLeft.toLowerCase() !== spoken.toLowerCase()
+          ? meaning
+          : meaning.includes("—")
+            ? meaning.slice(meaning.indexOf("—") + 1).trim()
+            : spoken !== card.pinyin
+              ? ""
+              : meaning;
+
+      const showFrontPy = els.showPinyinFront.checked;
+      els.frontPinyin.hidden = !showFrontPy;
+      els.frontPinyin.textContent = card.pinyin;
+    }
+
+    let voicesReady = false;
+    function pickVoice() {
+      const voices = speechSynthesis.getVoices();
+      const prefer = [
+        (v) => v.lang === "zh-TW" || v.lang === "zh_TW",
+        (v) => v.lang.toLowerCase().startsWith("zh-tw"),
+        (v) => /taiwan|bopomofo|meijia|tingting/i.test(v.name),
+        (v) => v.lang.toLowerCase().startsWith("zh"),
+        (v) => v.lang.toLowerCase().startsWith("cmn"),
+      ];
+      for (const test of prefer) {
+        const found = voices.find(test);
+        if (found) return found;
+      }
+      return null;
+    }
+
+    function speakCurrent() {
+      if (!("speechSynthesis" in window)) {
+        alert("This browser doesn’t support speech. Try Chrome or Safari on your phone.");
+        return Promise.resolve();
+      }
+      const card = currentCard();
+      const text = card.speak || card.example || card.pinyin;
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "zh-TW";
+      u.rate = 0.85;
+      const voice = pickVoice();
+      if (voice) u.voice = voice;
+      return new Promise((resolve) => {
+        let done = false;
+        let poll = null;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          if (poll) clearInterval(poll);
+          clearTimeout(fallback);
+          resolve();
+        };
+        // iOS often skips onend — watch speaking flag instead of a long fixed wait
+        const fallback = setTimeout(finish, Math.max(4000, text.length * 900));
+        u.onend = finish;
+        u.onerror = finish;
+        speechSynthesis.speak(u);
+        setTimeout(() => {
+          poll = setInterval(() => {
+            if (!speechSynthesis.speaking && !speechSynthesis.pending) finish();
+          }, 40);
+        }, 120);
+      });
+    }
+
+    // --- Temporary voice recording (memory only; discarded on re-record / new card) ---
+    const rec = {
+      mediaRecorder: null,
+      stream: null,
+      chunks: [],
+      blob: null,
+      url: null,
+      audio: null,
+      maxMs: 6000,
+      timer: null,
+      startedAt: 0,
+      session: 0, // bumped on every discard so late onstop events cannot revive audio
+    };
+
+    const recordBtn = document.getElementById("recordBtn");
+    const playMineBtn = document.getElementById("playMineBtn");
+    const compareBtn = document.getElementById("compareBtn");
+    const clearRecBtn = document.getElementById("clearRecBtn");
+    const recStatus = document.getElementById("recStatus");
+
+    function setRecStatus(text, mode) {
+      recStatus.textContent = text;
+      recStatus.classList.toggle("active", mode === "active");
+      recStatus.classList.toggle("ready", mode === "ready");
+    }
+
+    function updateRecButtons() {
+      const has = !!rec.url;
+      const recording = !!(rec.mediaRecorder && rec.mediaRecorder.state === "recording");
+      playMineBtn.disabled = !has || recording;
+      compareBtn.disabled = !has || recording;
+      clearRecBtn.disabled = (!has && !recording);
+      recordBtn.textContent = recording ? "⏹ Stop" : "🎤 Record";
+      recordBtn.classList.toggle("recording", recording);
+    }
+
+    /** Wipe any held take. Never persists to disk/network. */
+    function clearRecording(silent) {
+      rec.session += 1;
+      if (rec.timer) {
+        clearTimeout(rec.timer);
+        rec.timer = null;
+      }
+      if (rec.audio) {
+        try { rec.audio.pause(); } catch (_) {}
+        rec.audio.src = "";
+        rec.audio = null;
+      }
+      if (rec.url) {
+        URL.revokeObjectURL(rec.url);
+        rec.url = null;
+      }
+      rec.blob = null;
+      rec.chunks = [];
+
+      const recorder = rec.mediaRecorder;
+      rec.mediaRecorder = null;
+      if (recorder && recorder.state === "recording") {
+        try { recorder.stop(); } catch (_) {}
+      }
+
+      if (rec.stream) {
+        rec.stream.getTracks().forEach((t) => t.stop());
+        rec.stream = null;
+      }
+
+      updateRecButtons();
+      if (!silent) {
+        setRecStatus("Recording discarded. Nothing was saved.");
+      }
+    }
+
+    function pickMimeType() {
+      const candidates = [
+        "audio/mp4",
+        "audio/aac",
+        "audio/webm;codecs=opus",
+        "audio/webm",
+      ];
+      if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return "";
+      return candidates.find((t) => MediaRecorder.isTypeSupported(t)) || "";
+    }
+
+    async function startRecording() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert("Microphone recording isn’t available in this browser. Use Safari on iPhone.");
+        return;
+      }
+      if (!window.MediaRecorder) {
+        alert("Recording isn’t supported here. Update iOS / use Safari.");
+        return;
+      }
+
+      // New take always replaces the previous one immediately
+      clearRecording(true);
+      const session = rec.session;
+
+      try {
+        rec.stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+      } catch (err) {
+        setRecStatus("Microphone blocked — allow mic access in Safari Settings.");
+        alert("Could not access the microphone. In iPhone Settings → Safari → Microphone, allow access.");
+        return;
+      }
+
+      // User may have changed cards while the mic prompt was open
+      if (session !== rec.session) {
+        if (rec.stream) {
+          rec.stream.getTracks().forEach((t) => t.stop());
+          rec.stream = null;
+        }
+        return;
+      }
+
+      const mime = pickMimeType();
+      let mediaRecorder;
+      try {
+        mediaRecorder = mime
+          ? new MediaRecorder(rec.stream, { mimeType: mime })
+          : new MediaRecorder(rec.stream);
+      } catch (err) {
+        clearRecording(true);
+        alert("Could not start the recorder on this device.");
+        return;
+      }
+
+      rec.mediaRecorder = mediaRecorder;
+      rec.chunks = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (session !== rec.session) return;
+        if (e.data && e.data.size > 0) rec.chunks.push(e.data);
+      };
+      mediaRecorder.onstop = () => {
+        // Discarded take (re-record / new card / Clear) — do not keep audio
+        if (session !== rec.session) {
+          rec.chunks = [];
+          return;
+        }
+        const type = mediaRecorder.mimeType || mime || "audio/mp4";
+        rec.blob = new Blob(rec.chunks, { type });
+        rec.chunks = [];
+        if (rec.url) URL.revokeObjectURL(rec.url);
+        rec.url = URL.createObjectURL(rec.blob);
+        if (rec.stream) {
+          rec.stream.getTracks().forEach((t) => t.stop());
+          rec.stream = null;
+        }
+        const secs = ((Date.now() - rec.startedAt) / 1000).toFixed(1);
+        setRecStatus(
+          `Held ${secs}s in memory only — re-record or next card discards it.`,
+          "ready"
+        );
+        updateRecButtons();
+      };
+
+      rec.startedAt = Date.now();
+      mediaRecorder.start(250);
+      setRecStatus("Recording… tap Stop when done (max 6s)", "active");
+      updateRecButtons();
+      rec.timer = setTimeout(() => {
+        if (session !== rec.session) return;
+        if (rec.mediaRecorder && rec.mediaRecorder.state === "recording") stopRecording();
+      }, rec.maxMs);
+    }
+
+    function stopRecording() {
+      if (rec.timer) {
+        clearTimeout(rec.timer);
+        rec.timer = null;
+      }
+      if (rec.mediaRecorder && rec.mediaRecorder.state === "recording") {
+        rec.mediaRecorder.stop();
+      }
+      updateRecButtons();
+    }
+
+    function playMine() {
+      if (!rec.url) return;
+      if (rec.audio) {
+        try { rec.audio.pause(); } catch (_) {}
+        rec.audio = null;
+      }
+      speechSynthesis.cancel();
+      rec.audio = new Audio(rec.url);
+      rec.audio.play().catch(() => {
+        alert("Could not play your recording. Try recording again.");
+      });
+    }
+
+    async function compareTakes() {
+      if (!rec.url) return;
+      const session = rec.session;
+      setRecStatus("Playing example…", "active");
+      await speakCurrent();
+      if (session !== rec.session || !rec.url) return;
+      await new Promise((r) => setTimeout(r, 80));
+      if (session !== rec.session || !rec.url) return;
+      setRecStatus("Playing your take…", "active");
+      await new Promise((resolve) => {
+        if (rec.audio) {
+          try { rec.audio.pause(); } catch (_) {}
+          rec.audio = null;
+        }
+        const a = new Audio(rec.url);
+        rec.audio = a;
+        a.onended = () => resolve();
+        a.onerror = () => resolve();
+        a.play().catch(() => resolve());
+        setTimeout(resolve, 7000);
+      });
+      if (session !== rec.session) return;
+      setRecStatus("Compare done. Re-record or next card discards this take.", "ready");
+    }
+
+    function flip(andMaybeSpeak) {
+      state.flipped = !state.flipped;
+      render();
+      if (andMaybeSpeak && state.flipped && els.autoSpeak.checked) {
+        setTimeout(() => { speakCurrent(); }, 180);
+      }
+    }
+
+    function go(delta) {
+      const total = state.order.length;
+      state.index = (state.index + delta + total) % total;
+      state.flipped = false;
+      clearRecording(true); // discard immediately — do not keep prior take
+      setRecStatus("Previous take discarded. Recording stays on this phone only.");
+      render();
+    }
+
+    // Setup deck select
+    Object.entries(DECK_META).forEach(([key, label]) => {
+      const opt = document.createElement("option");
+      opt.value = key;
+      opt.textContent = label;
+      els.deck.appendChild(opt);
+    });
+
+    els.deck.addEventListener("change", () => {
+      state.deckKey = els.deck.value;
+      clearRecording(true);
+      setRecStatus("Previous take discarded. Recording stays on this phone only.");
+      resetOrder(false);
+    });
+    document.getElementById("shuffle").addEventListener("click", () => {
+      clearRecording(true);
+      setRecStatus("Previous take discarded. Recording stays on this phone only.");
+      resetOrder(true);
+    });
+    document.getElementById("prev").addEventListener("click", () => go(-1));
+    document.getElementById("next").addEventListener("click", () => go(1));
+    document.getElementById("flip").addEventListener("click", () => flip(true));
+    document.getElementById("speak").addEventListener("click", () => { speakCurrent(); });
+    recordBtn.addEventListener("click", () => {
+      if (rec.mediaRecorder && rec.mediaRecorder.state === "recording") stopRecording();
+      else startRecording();
+    });
+    playMineBtn.addEventListener("click", playMine);
+    compareBtn.addEventListener("click", () => { compareTakes(); });
+    clearRecBtn.addEventListener("click", () => clearRecording(false));
+    els.showPinyinFront.addEventListener("change", render);
+
+    els.card.addEventListener("click", () => flip(true));
+    els.card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        flip(true);
+      }
+    });
+
+    // Swipe left/right on card
+    let touchX = null;
+    els.card.addEventListener("touchstart", (e) => {
+      touchX = e.changedTouches[0].clientX;
+    }, { passive: true });
+    els.card.addEventListener("touchend", (e) => {
+      if (touchX == null) return;
+      const dx = e.changedTouches[0].clientX - touchX;
+      touchX = null;
+      if (Math.abs(dx) < 50) return;
+      if (dx < 0) go(1);
+      else go(-1);
+    }, { passive: true });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.target.matches("select, input, textarea")) return;
+      if (e.key === "ArrowRight") go(1);
+      if (e.key === "ArrowLeft") go(-1);
+      if (e.key === " " || e.key === "f") {
+        e.preventDefault();
+        flip(true);
+      }
+      if (e.key === "s") speakCurrent();
+    });
+
+    speechSynthesis.getVoices();
+    speechSynthesis.onvoiceschanged = () => { voicesReady = true; };
+
+    // iOS only speaks after a direct tap — keep auto-speak off by default there
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (isIOS) els.autoSpeak.checked = false;
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    }
+
+    resetOrder(false);
+  </script>
+</body>
+</html>
